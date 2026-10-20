@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>กิจกรรม Identity V (กรอกรหัส)</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121214;--sf:#1c1c20;--sf2:#26262c;--ln:#38383f;--tx:#ece8e1;--mu:#9a9aa3;--ac:#b8324c;--ac2:#d8506a;--ok:#4caf7d;--wn:#d9a441;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.6 "Noto Sans Thai",system-ui,sans-serif}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid var(--ln);background:var(--sf)}
+.wrap{max-width:720px;margin:0 auto;padding:16px 14px 60px}
+.warn{background:#2a1a1e;border:1px solid var(--ac);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:16px}
+h1{font-size:28px;line-height:1.25;margin:8px 0}h2{font-size:20px;margin:20px 0 8px}p{margin:6px 0}
+.mu{color:var(--mu);font-size:14px}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:12px;padding:14px;margin:10px 0}
+label{display:block;margin:12px 0 4px;font-weight:600;font-size:15px}
+input,select{width:100%;min-height:48px;padding:10px 12px;background:var(--sf2);color:var(--tx);border:1px solid var(--ln);border-radius:10px;font:inherit}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--ac2);outline-offset:1px}
+button{min-height:48px;padding:10px 18px;border:0;border-radius:10px;background:var(--ac);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+button:disabled{opacity:.5}
+button.g{background:var(--sf2);color:var(--tx);border:1px solid var(--ln)}
+button.s{min-height:38px;padding:6px 12px;font-size:14px}
+button.d{background:#5a1f2a}
+.full{width:100%;margin-top:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:1 1 auto}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px}
+.tabs button{flex:0 0 auto;min-height:40px;background:var(--sf2);color:var(--mu);border:1px solid var(--ln)}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.tag{display:inline-block;padding:2px 10px;border-radius:99px;font-size:13px;font-weight:600;border:1px solid var(--ln)}
+.t-pending{color:var(--wn);border-color:var(--wn)}.t-review,.t-used{color:#6fb1e8;border-color:#6fb1e8}.t-sent,.t-unused{color:var(--ok);border-color:var(--ok)}.t-cancelled,.t-expired{color:var(--mu)}
+.code{font-family:ui-monospace,Menlo,monospace;letter-spacing:.5px}
+.err{color:#ff8a9b;margin-top:8px;font-size:15px}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;font-size:15px}.kv b{color:var(--mu);font-weight:400}
+dialog{background:var(--sf);color:var(--tx);border:1px solid var(--ln);border-radius:14px;max-width:420px;width:calc(100% - 28px)}
+dialog::backdrop{background:#000a}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--sf2);border:1px solid var(--ac);padding:10px 16px;border-radius:10px;display:none;z-index:9;max-width:90%}
+</style>
+</head>
+<body>
+<div class="top"><button class="g s" id="adm" onclick="goAdmin()">Admin</button><span class="mu">เว็บไซต์แฟนสร้างเอง</span></div>
+<div class="wrap" id="app"><p class="mu">กำลังโหลด...</p></div>
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,getDoc,getDocs,setDoc,addDoc,updateDoc,collection,query,orderBy,limit,writeBatch,Timestamp,serverTimestamp,arrayUnion} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const cfg={apiKey:"AIzaSyAbFT5shgG4A-7Mbt22EYVDstrfqkJXwOA",authDomain:"idv-event.firebaseapp.com",projectId:"idv-event",storageBucket:"idv-event.firebasestorage.app",messagingSenderId:"578921851701",appId:"1:578921851701:web:6669eeebfca88ec0443a7c"};
+const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ms=t=>t&&t.toMillis?t.toMillis():(t||Date.now());
+const fd=t=>new Date(ms(t)).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'});
+const fdt=t=>new Date(ms(t)).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
+const eod=d=>Timestamp.fromDate(new Date(d+'T23:59:59'));
+const SL={pending:'รอตรวจสอบ',review:'กำลังตรวจสอบ',sent:'ส่งรางวัลแล้ว',cancelled:'ยกเลิกรายการ'};
+const CL_={unused:'ยังไม่ใช้',used:'ใช้แล้ว',expired:'หมดอายุ',cancelled:'ยกเลิก'};
+const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',rnd=n=>Array.from(crypto.getRandomValues(new Uint8Array(n)),b=>A[b%A.length]).join('');
+const genCode=()=>`IDV-${rnd(4)}-${rnd(4)}`;
+const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,20);
+const dd=d=>({id:d.id,...d.data()});
+let me=null,tab='events',pv={step:'code'},q='',siteOpen=true,EV=[],CD=[],CLM=[],LG=[],AD=[];
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',3000)}
+function closeD(){$('#dlg').close()}
+function ask(title,body,ok,label='ยืนยัน'){const d=$('#dlg');d.innerHTML=`<h2 style="margin-top:0">${title}</h2>${body}<div class="row" style="margin-top:14px"><button class="g" onclick="closeD()">ยกเลิก</button><button id="okb">${label}</button></div>`;$('#okb').onclick=async()=>{const b=$('#okb');b.disabled=true;try{if(await ok()!==false)d.close()}catch(e){toast('ทำรายการไม่สำเร็จ');}b.disabled=false};d.showModal()}
+async function log(a){try{await addDoc(collection(db,'logs'),{t:serverTimestamp(),by:me?me.name:'?',a})}catch(e){}}
+const cstat=c=>c.status==='unused'&&ms(c.exp)<Date.now()?'expired':c.status;
+const evOpen=e=>e.open&&ms(e.endAt)>Date.now();
+const WARN='<div class="warn">เว็บไซต์นี้ไม่ใช่เว็บไซต์อย่างเป็นทางการของ Identity V และไม่มีความเกี่ยวข้องกับผู้พัฒนาเกมหรือผู้ให้บริการเกมอย่างเป็นทางการ</div>';
+const lk=()=>{try{return JSON.parse(localStorage.getItem('idvf'))||{n:0,until:0}}catch(e){return{n:0,until:0}}};
+const sk=v=>{try{localStorage.setItem('idvf',JSON.stringify(v))}catch(e){}};
+function go(s){pv={step:s};render()}
+function setTab(k){tab=k;q='';render()}
+function goAdmin(){if(me){signOut(auth);return}pv={step:'login'};render()}
+
+onAuthStateChanged(auth,async u=>{
+ if(!u){me=null;render();return}
+ try{const s=await getDoc(doc(db,'admins',u.uid));
+  if(s.exists()&&[true,'true'].includes(s.data().active)){me={uid:u.uid,...s.data()};tab='events';
+   const st=await getDoc(doc(db,'meta','site'));if(!st.exists())await setDoc(doc(db,'meta','site'),{open:true});else siteOpen=st.data().open!==false}
+  else{await signOut(auth);pv={step:'login',err:'บัญชีนี้ยังไม่ได้รับสิทธิ์แอดมิน'};return}}
+ catch(e){await signOut(auth);pv={step:'login',err:'เข้าสู่ระบบไม่สำเร็จ'};return}
+ render()});
+(async()=>{try{const s=await getDoc(doc(db,'meta','site'));siteOpen=!s.exists()||s.data().open!==false}catch(e){}if(!me)render()})();
+
+async function render(){
+ $('#adm').textContent=me?'ออกจากระบบ':'Admin';
+ if(!me){$('#app').innerHTML=pv.step==='login'?loginView():playerView();return}
+ $('#app').innerHTML='<p class="mu">กำลังโหลด...</p>';
+ try{
+  if(tab==='events'||tab==='codes')EV=(await getDocs(collection(db,'events'))).docs.map(dd);
+  if(tab==='codes')CD=(await getDocs(query(collection(db,'codes'),orderBy('created','desc'),limit(300)))).docs.map(dd);
+  if(tab==='claims')CLM=(await getDocs(query(collection(db,'claims'),orderBy('created','desc'),limit(300)))).docs.map(dd);
+  if(tab==='log')LG=(await getDocs(query(collection(db,'logs'),orderBy('t','desc'),limit(200)))).docs.map(dd);
+  if(tab==='team')AD=(await getDocs(collection(db,'admins'))).docs.map(dd);
+ }catch(e){$('#app').innerHTML='<div class="err">โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง</div>';return}
+ $('#app').innerHTML=adminView();if($('#ce'))fillRw()}
