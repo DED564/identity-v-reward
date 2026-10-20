@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="utf-8">
+<meta charset="DOCTYPE">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>กิจกรรม Identity V (กรอกรหัส)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;800&display=swap" rel="stylesheet">
@@ -171,3 +171,49 @@ function editEv(id){const e=EV.find(x=>x.id===id);
  ask('แก้ไขกิจกรรม',`<label for="x1">ชื่อ</label><input id="x1" value="${esc(e.name)}"><label for="x2">รายละเอียด</label><input id="x2" value="${esc(e.desc)}"><label for="x3">วันสิ้นสุด</label><input id="x3" type="date" value="${esc(e.end)}"><label for="x4">รางวัล</label><input id="x4" value="${esc(e.rewards.join(', '))}">`,async()=>{
  const r=$('#x4').value.split(',').map(x=>x.trim()).filter(Boolean),n=$('#x1').value.trim(),en=$('#x3').value;if(!n||!r.length||!en)return false;
  await updateDoc(doc(db,'events',id),{name:n,desc:$('#x2').value.trim(),end:en,endAt:eod(en),rewards:r});await log('แก้ไขกิจกรรม '+n);render()},'บันทึก')}
+ function cdTab(){
+ return `<div class="card"><h2 style="margin-top:0">สร้างโค้ด</h2>${EV.length?`<label for="ce">กิจกรรม</label><select id="ce" onchange="fillRw()">${EV.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select><label for="cr">รางวัล</label><select id="cr"></select><label for="cx">วันหมดอายุ</label><input id="cx" type="date"><label for="cm">โค้ด (พิมพ์เอง หรือกดสุ่ม)</label><div class="row"><input id="cm" class="code" style="flex:3"><button class="g" onclick="rndCode()">สุ่มโค้ด</button></div><p class="mu">โค้ดที่พิมพ์เองควรยาวและเดายาก เพราะใครรู้โค้ดก็ลองกรอกได้</p><div class="err" id="er"></div><button class="full" onclick="addCode()">บันทึกโค้ด</button>`:'<p class="mu">สร้างกิจกรรมก่อนจึงจะสร้างโค้ดได้</p>'}</div>
+ <input placeholder="ค้นหาโค้ด" oninput="sq(this.value)"><div id="cl">${codeList()}</div>`}
+function codeList(){return CD.filter(c=>!q||c.id.includes(q.toUpperCase())).map(c=>{const s=cstat(c);return `<div class="card"><div class="row"><span class="code" style="flex:3">${esc(c.id)}</span><span class="tag t-${s}">${CL_[s]}</span></div><p class="mu">${esc(c.eventName)} · ${esc(c.reward)} · หมดอายุ ${fd(c.exp)}${c.claimId?' · '+esc(c.claimId):''}</p>${s==='unused'?`<button class="g s" onclick="cancelCode('${c.id}')">ยกเลิกโค้ด</button>`:''}</div>`}).join('')||'<p class="mu">ยังไม่มีโค้ด</p>'}
+function sq(v){q=v;if($('#cl'))$('#cl').innerHTML=codeList();if($('#cc'))$('#cc').innerHTML=claimList()}
+function rndCode(){$('#cm').value=genCode()}
+function fillRw(){const e=EV.find(x=>x.id===$('#ce').value);if(e)$('#cr').innerHTML=e.rewards.map(r=>`<option>${esc(r)}</option>`).join('')}
+async function addCode(){
+ const er=$('#er'),exp=$('#cx').value;let code=$('#cm').value.trim().toUpperCase();
+ if(!exp||eod(exp).toMillis()<Date.now()){er.textContent='ต้องระบุวันหมดอายุที่ยังมาไม่ถึง';return}
+ const e=EV.find(x=>x.id===$('#ce').value);
+ try{
+  if(!code){for(let i=0;i<8;i++){const t=genCode();if(!(await getDoc(doc(db,'codes',t))).exists()){code=t;break}}if(!code){er.textContent='สุ่มโค้ดไม่สำเร็จ ลองใหม่';return}}
+  else if(!/^[A-Z0-9-]{4,30}$/.test(code)){er.textContent='โค้ดใช้ได้เฉพาะ A-Z 0-9 และ - ยาว 4-30 ตัว';return}
+  else if((await getDoc(doc(db,'codes',code))).exists()){er.textContent='โค้ดนี้เคยมีอยู่แล้ว (ทุกสถานะ) ไม่บันทึก';return}
+  await setDoc(doc(db,'codes',code),{eventId:e.id,eventName:e.name,reward:$('#cr').value,exp:eod(exp),status:'unused',created:serverTimestamp()});
+  await log('สร้างโค้ด '+code);toast('บันทึกโค้ด '+code)}
+ catch(x){er.textContent='บันทึกไม่สำเร็จ (อาจเป็นโค้ดซ้ำ)';return}
+ render()}
+function cancelCode(code){ask('ยกเลิกโค้ด',`<p>ยกเลิกโค้ด <span class="code">${esc(code)}</span> ? ยกเลิกแล้วนำกลับมาใช้ไม่ได้</p>`,async()=>{await updateDoc(doc(db,'codes',code),{status:'cancelled'});await log('ยกเลิกโค้ด '+code);render()})}
+
+function clTab(){return `<input placeholder="ค้นหาด้วยโค้ดหรือหมายเลขรายการ" oninput="sq(this.value)"><div id="cc">${claimList()}</div><p class="mu">ระบบไม่มีปุ่มดาวน์โหลดข้อมูลผู้รับรางวัล · แสดง 300 รายการล่าสุด</p>`}
+function claimList(){return CLM.filter(c=>!q||c.code.includes(q.toUpperCase())||c.id.includes(q.toUpperCase())).map(c=>claimCard(c,true)+`<div class="card" style="margin-top:-6px"><div class="row">${c.status==='pending'?`<button class="s" onclick="setSt('${c.id}','review')">เริ่มตรวจสอบ</button>`:''}${c.status==='review'?`<button class="s" onclick="confirmSent('${c.id}')">ส่งรางวัลแล้ว</button>`:''}${c.status!=='sent'&&c.status!=='cancelled'?`<button class="d s" onclick="cancelClaim('${c.id}')">ยกเลิกรายการ</button>`:''}<button class="g s" onclick="delClaim('${c.id}')">ลบ</button></div><p class="mu" style="font-size:13px">${(c.hist||[]).map(h=>`${fdt(h.t)} ${esc(h.by)}: ${esc(h.a)}`).join('<br>')}</p></div>`).join('')||'<p class="mu">ยังไม่มีผู้ส่งข้อมูล</p>'}
+async function setStatus(id,s,a){const c=CLM.find(x=>x.id===id),b=writeBatch(db);
+ b.update(doc(db,'claims',id),{status:s,hist:arrayUnion({t:Date.now(),by:me.name,a})});b.update(doc(db,'receipts',c.rid),{status:s});await b.commit();await log(id+': '+a);render()}
+const setSt=(id,s)=>setStatus(id,s,'เปลี่ยนสถานะเป็น '+SL[s]).catch(()=>toast('ทำรายการไม่สำเร็จ'));
+function confirmSent(id){ask('ยืนยันส่งรางวัล',`<p>ยืนยันว่าส่งรางวัลของ ${esc(id)} เรียบร้อยแล้ว?</p>`,()=>setStatus(id,'sent','เปลี่ยนสถานะเป็น ส่งรางวัลแล้ว'))}
+function cancelClaim(id){ask('ยกเลิกรายการ',`<label for="rs">เหตุผล (จำเป็น)</label><input id="rs"><p class="mu">โค้ดที่ใช้ไปแล้วจะไม่กลับมาใช้ได้</p>`,()=>{const r=$('#rs').value.trim();if(!r)return false;return setStatus(id,'cancelled','ยกเลิกรายการ: '+r)},'ยกเลิกรายการ')}
+function delClaim(id){ask('ลบรายการ',`<p>ลบ ${esc(id)}? ประวัติการลบจะถูกเก็บไว้ และโค้ดยังคงเป็นใช้แล้ว</p>`,async()=>{const c=CLM.find(x=>x.id===id),b=writeBatch(db);b.delete(doc(db,'claims',id));b.delete(doc(db,'receipts',c.rid));await b.commit();await log('ลบรายการ '+id+' (โค้ด '+c.code+', UID '+c.uid+')');render()},'ลบ')}
+function lgTab(){return LG.map(l=>`<div class="card mu"><b style="color:var(--tx)">${esc(l.by)}</b> · ${l.t?fdt(l.t):''}<br>${esc(l.a)}</div>`).join('')||'<p class="mu">ยังไม่มีประวัติ</p>'}
+
+function tmTab(){
+ return `<div class="card"><h2 style="margin-top:0">เพิ่มผู้จัดกิจกรรม</h2><label for="tn">ชื่อที่แสดง</label><input id="tn"><label for="tu">อีเมล</label><input id="tu" type="email"><label for="tp">รหัสผ่านเริ่มต้น (10 ตัวขึ้นไป)</label><input id="tp" type="password"><div class="err" id="er"></div><button class="full" onclick="addAdm()">สร้างบัญชี</button></div>`+
+ AD.map(a=>`<div class="card row"><span style="flex:3">${esc(a.name)} · ${a.role==='main'?'ผู้ดูแลหลัก':'ผู้จัด'}</span><span class="tag ${a.active?'t-unused':'t-expired'}">${a.active?'ใช้งาน':'ปิดบัญชี'}</span>${a.role!=='main'?`<button class="g s" onclick="togAdm('${a.id}')">${a.active?'ปิดบัญชี':'เปิดบัญชี'}</button>`:''}</div>`).join('')}
+async function addAdm(){const n=$('#tn').value.trim(),e=$('#tu').value.trim(),p=$('#tp').value;
+ if(!n||!e||p.length<10){$('#er').textContent='ต้องมีชื่อ อีเมล และรหัสผ่านอย่างน้อย 10 ตัวอักษร';return}
+ try{const a2=getAuth(initializeApp(cfg,'sec'+Date.now()));const cr=await createUserWithEmailAndPassword(a2,e,p);await signOut(a2);
+  await setDoc(doc(db,'admins',cr.user.uid),{name:n,role:'org',active:true});await log('สร้างบัญชีผู้จัด '+n)}
+ catch(x){$('#er').textContent='สร้างบัญชีไม่สำเร็จ (อีเมลอาจซ้ำหรือรหัสผ่านสั้นเกินไป)';return}
+ render()}
+async function togAdm(id){const a=AD.find(x=>x.id===id);try{await updateDoc(doc(db,'admins',id),{active:!a.active});await log((a.active?'ปิดบัญชี ':'เปิดบัญชี ')+a.name)}catch(e){toast('ทำรายการไม่สำเร็จ')}render()}
+
+Object.assign(window,{goAdmin,go,setTab,sq,closeD,chk,review,lookup,login,toggleSite,addEv,togEv,editEv,addCode,rndCode,cancelCode,fillRw,setSt,confirmSent,cancelClaim,delClaim,addAdm,togAdm});
+</script>
+</body>
+</html>
