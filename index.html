@@ -97,3 +97,77 @@ async function render(){
   if(tab==='team')AD=(await getDocs(collection(db,'admins'))).docs.map(dd);
  }catch(e){$('#app').innerHTML='<div class="err">โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง</div>';return}
  $('#app').innerHTML=adminView();if($('#ce'))fillRw()}
+/* ---------- Player ---------- */
+function playerView(){
+ if(!siteOpen)return WARN+'<h1>ไม่พบหน้าที่ต้องการ</h1>';
+ const s=pv.step;
+ if(s==='code')return WARN+`<h1>กิจกรรม Identity V</h1><p class="mu">กรอกรหัสกิจกรรมเพื่อรับรางวัลของคุณ</p>
+ <label for="cd">รหัสกิจกรรม (Event Code)</label><input id="cd" class="code" autocomplete="off" autocapitalize="characters" placeholder="กรอกโค้ดของคุณที่นี่...">
+ <div class="err" id="er"></div><button class="full" id="cb" onclick="chk()">ตรวจสอบโค้ด</button>
+ <button class="full g" onclick="go('look')">ตรวจสอบรายการของฉัน</button>`;
+ if(s==='form'){const c=pv.code;return WARN+`<h1>${esc(c.eventName)}</h1><p>${esc(pv.desc)}</p>
+ <div class="card"><div class="kv"><b>รางวัลที่จะได้รับ</b><span>${esc(c.reward)}</span><b>โค้ด</b><span class="code">${esc(c.id)}</span></div></div>
+ <label for="uid">UID ในเกม *</label><input id="uid" inputmode="numeric" maxlength="30">
+ <label for="nm">ชื่อในเกม *</label><input id="nm" maxlength="60">
+ <label for="jd">วันที่เข้าร่วมกิจกรรม *</label><input id="jd" type="date">
+ <div class="err" id="er"></div><button class="full" onclick="review()">ตรวจสอบข้อมูลก่อนส่ง</button>
+ <button class="full g" onclick="go('code')">กลับ</button>`}
+ if(s==='done')return WARN+'<h1>ส่งข้อมูลสำเร็จ</h1><p class="mu">จดหมายเลขรายการไว้ ใช้ตรวจสอบสถานะภายหลังพร้อม UID ของคุณ ผู้เล่นแก้ไขข้อมูลเองไม่ได้ หากกรอกผิดให้ติดต่อผู้จัดกิจกรรม</p>'+claimCard(pv.claim,false)+'<button class="full" onclick="go(\'code\')">กลับหน้าแรก</button>';
+ if(s==='look')return WARN+`<h1>ตรวจสอบรายการ</h1><label for="cn">หมายเลขรายการรับรางวัล</label><input id="cn" class="code" placeholder="CLAIM-XXXXXX"><label for="lu">UID ในเกม</label><input id="lu" inputmode="numeric">
+ <div class="err" id="er"></div><button class="full" onclick="lookup()">ตรวจสอบ</button><button class="full g" onclick="go('code')">กลับ</button>`;
+ if(s==='found')return WARN+'<h1>รายการของคุณ</h1>'+claimCard(pv.claim,false)+'<button class="full g" onclick="go(\'code\')">กลับหน้าแรก</button>';
+}
+function claimCard(c,adm){return `<div class="card"><div class="kv"><b>หมายเลขรายการ</b><span class="code">${esc(c.id||c.claimId)}</span><b>กิจกรรม</b><span>${esc(c.eventName)}</span><b>รางวัล</b><span>${esc(c.reward)}</span><b>โค้ดที่ใช้</b><span class="code">${esc(c.code)}</span><b>UID</b><span>${esc(c.uid)}</span><b>ชื่อในเกม</b><span>${esc(c.name)}</span>${adm?`<b>วันที่เข้าร่วม</b><span>${esc(c.date)}</span>`:''}<b>วันที่ส่งข้อมูล</b><span>${fd(c.created)}</span><b>สถานะ</b><span><span class="tag t-${c.status}">${SL[c.status]}</span></span></div></div>`}
+async function chk(){
+ const er=$('#er'),L=lk();if(L.until>Date.now()){er.textContent=`ลองผิดหลายครั้งเกินไป กรุณารออีก ${Math.ceil((L.until-Date.now())/60000)} นาที`;return}
+ const v=$('#cd').value.trim().toUpperCase().replace(/[^A-Z0-9-]/g,'');
+ $('#cb').disabled=true;let ok=false,c,desc='';
+ try{if(v){const s=await getDoc(doc(db,'codes',v));
+  if(s.exists()){c=dd(s);if(cstat(c)==='unused'){const e=await getDoc(doc(db,'events',c.eventId));if(e.exists()&&evOpen(e.data())){ok=true;desc=e.data().desc||''}}}}}
+ catch(e){er.textContent='เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง';$('#cb').disabled=false;return}
+ if(!ok){L.n++;if(L.n>=5){sk({n:0,until:Date.now()+15*60000});er.textContent='กรอกผิด 5 ครั้ง ระงับการลอง 15 นาที'}else{sk(L);er.textContent='โค้ดไม่ถูกต้องหรือใช้งานไม่ได้'}$('#cb').disabled=false;return}
+ sk({n:0,until:0});pv={step:'form',code:c,desc};render()}
+function review(){
+ const uid=$('#uid').value.trim(),nm=$('#nm').value.trim(),jd=$('#jd').value,er=$('#er');
+ if(!uid||!nm||!jd){er.textContent='กรุณากรอก UID ชื่อในเกม และวันที่เข้าร่วมให้ครบ';return}
+ ask('คุณแน่ใจในข้อมูลแล้วใช่ไหม?',`<div class="kv"><b>UID</b><span>${esc(uid)}</span><b>ชื่อในเกม</b><span>${esc(nm)}</span><b>วันที่เข้าร่วม</b><span>${esc(jd)}</span></div><p class="mu">ส่งแล้วแก้ไขเองไม่ได้ หากผิดต้องติดต่อผู้จัดกิจกรรม</p>`,()=>submit({uid,name:nm,date:jd}),'ใช่ ส่งข้อมูล')}
+async function submit(f){
+ const c=pv.code,id='CLAIM-'+rnd(6),rid=id+'_'+await sha(f.uid);
+ const base={code:c.id,eventId:c.eventId,eventName:c.eventName,reward:c.reward,uid:f.uid,name:f.name,date:f.date,status:'pending'};
+ try{const b=writeBatch(db);
+  b.update(doc(db,'codes',c.id),{status:'used',claimId:id});
+  b.set(doc(db,'claims',id),{...base,rid,created:serverTimestamp()});
+  b.set(doc(db,'receipts',rid),{claimId:id,eventName:c.eventName,reward:c.reward,code:c.id,uid:f.uid,name:f.name,created:serverTimestamp(),status:'pending'});
+  await b.commit()}
+ catch(e){toast('ส่งไม่สำเร็จ โค้ดอาจถูกใช้ไปแล้ว หรือกิจกรรมปิดรับ');go('code');return false}
+ pv={step:'done',claim:{...base,id,created:Date.now()}};render()}
+async function lookup(){
+ const id=$('#cn').value.trim().toUpperCase(),u=$('#lu').value.trim();let r=null;
+ try{if(id&&u){const s=await getDoc(doc(db,'receipts',id+'_'+await sha(u)));if(s.exists())r=s.data()}}catch(e){}
+ if(!r){$('#er').textContent='ไม่พบข้อมูลหรือไม่สามารถตรวจสอบได้';return}
+ pv={step:'found',claim:{...r,id:r.claimId}};render()}
+
+/* ---------- Admin ---------- */
+function loginView(){return `<h1>เข้าสู่ระบบแอดมิน</h1><label for="le">อีเมล</label><input id="le" type="email" autocomplete="username"><label for="lp">รหัสผ่าน</label><input id="lp" type="password" autocomplete="current-password">
+ <div class="err" id="er">${esc(pv.err||'')}</div><button class="full" id="lb" onclick="login()">เข้าสู่ระบบ</button><button class="full g" onclick="go('code')">กลับหน้าผู้เล่น</button>`}
+async function login(){
+ const e=$('#le').value.trim(),p=$('#lp').value;if(!e||!p){$('#er').textContent='กรอกอีเมลและรหัสผ่าน';return}
+ $('#lb').disabled=true;try{await signInWithEmailAndPassword(auth,e,p)}catch(x){$('#er').textContent='อีเมลหรือรหัสผ่านไม่ถูกต้อง';$('#lb').disabled=false}}
+function adminView(){
+ const T=[['events','กิจกรรม'],['codes','โค้ด'],['claims','ผู้รับรางวัล'],['log','ประวัติ']];if(me.role==='main')T.push(['team','ทีมงาน']);
+ return `<div class="row"><b>${esc(me.name)} (${me.role==='main'?'ผู้ดูแลหลัก':'ผู้จัด'})</b><button class="s ${siteOpen?'':'d'}" onclick="toggleSite()">เว็บผู้เล่น: ${siteOpen?'เปิด':'ปิด'}</button></div>
+ <div class="tabs">${T.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="setTab('${k}')">${l}</button>`).join('')}</div>`+({events:evTab,codes:cdTab,claims:clTab,log:lgTab,team:tmTab}[tab])()}
+async function toggleSite(){siteOpen=!siteOpen;try{await setDoc(doc(db,'meta','site'),{open:siteOpen});log(siteOpen?'เปิดเว็บไซต์ผู้เล่น':'ปิดเว็บไซต์ผู้เล่น')}catch(e){siteOpen=!siteOpen;toast('ทำรายการไม่สำเร็จ')}render()}
+
+function evTab(){
+ return `<div class="card"><h2 style="margin-top:0">สร้างกิจกรรมใหม่</h2><label for="en">ชื่อกิจกรรม</label><input id="en"><label for="ed">รายละเอียด</label><input id="ed"><label for="ee">วันสิ้นสุด</label><input id="ee" type="date"><label for="er2">รางวัล (คั่นด้วยเครื่องหมาย , )</label><input id="er2" placeholder="กรอบโปรไฟล์, ไอเทม A"><div class="err" id="er"></div><button class="full" onclick="addEv()">สร้างกิจกรรม</button></div>`+
+ (EV.map(e=>`<div class="card"><b>${esc(e.name)}</b> <span class="tag ${evOpen(e)?'t-unused':'t-expired'}">${evOpen(e)?'เปิดรับ':'ปิดรับ'}</span><p>${esc(e.desc)}</p><p class="mu">สิ้นสุด ${esc(e.end)} · รางวัล: ${e.rewards.map(esc).join(', ')}</p><div class="row"><button class="g s" onclick="togEv('${e.id}')">${e.open?'ปิดรับข้อมูล':'เปิดรับข้อมูล'}</button><button class="g s" onclick="editEv('${e.id}')">แก้ไข</button></div></div>`).join('')||'<p class="mu">ยังไม่มีกิจกรรม สร้างกิจกรรมแรกด้านบน</p>')}
+async function addEv(){
+ const n=$('#en').value.trim(),d=$('#ed').value.trim(),e=$('#ee').value,r=$('#er2').value.split(',').map(x=>x.trim()).filter(Boolean);
+ if(!n||!e||!r.length){$('#er').textContent='ต้องมีชื่อ วันสิ้นสุด และรางวัลอย่างน้อย 1 รายการ';return}
+ try{await addDoc(collection(db,'events'),{name:n,desc:d,end:e,endAt:eod(e),open:true,rewards:r});await log('สร้างกิจกรรม '+n);toast('สร้างกิจกรรมแล้ว')}catch(x){toast('บันทึกไม่สำเร็จ')}render()}
+async function togEv(id){const e=EV.find(x=>x.id===id);try{await updateDoc(doc(db,'events',id),{open:!e.open});await log((e.open?'ปิดรับ ':'เปิดรับ ')+e.name)}catch(x){toast('ทำรายการไม่สำเร็จ')}render()}
+function editEv(id){const e=EV.find(x=>x.id===id);
+ ask('แก้ไขกิจกรรม',`<label for="x1">ชื่อ</label><input id="x1" value="${esc(e.name)}"><label for="x2">รายละเอียด</label><input id="x2" value="${esc(e.desc)}"><label for="x3">วันสิ้นสุด</label><input id="x3" type="date" value="${esc(e.end)}"><label for="x4">รางวัล</label><input id="x4" value="${esc(e.rewards.join(', '))}">`,async()=>{
+ const r=$('#x4').value.split(',').map(x=>x.trim()).filter(Boolean),n=$('#x1').value.trim(),en=$('#x3').value;if(!n||!r.length||!en)return false;
+ await updateDoc(doc(db,'events',id),{name:n,desc:$('#x2').value.trim(),end:en,endAt:eod(en),rewards:r});await log('แก้ไขกิจกรรม '+n);render()},'บันทึก')}
