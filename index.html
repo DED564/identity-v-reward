@@ -80,8 +80,8 @@ onAuthStateChanged(auth,async u=>{
  try{const s=await getDoc(doc(db,'admins',u.uid));
   if(s.exists()&&[true,'true'].includes(s.data().active)){me={uid:u.uid,...s.data()};tab='events';
    const st=await getDoc(doc(db,'meta','site'));if(!st.exists())await setDoc(doc(db,'meta','site'),{open:true});else siteOpen=st.data().open!==false}
-  else{await signOut(auth);pv={step:'login',err:'บัญชีนี้ยังไม่ได้รับสิทธิ์แอดมิน'};return}}
- catch(e){await signOut(auth);pv={step:'login',err:'เข้าสู่ระบบไม่สำเร็จ'};return}
+  else{pv={step:'login',err:'บัญชีนี้ยังไม่ได้รับสิทธิ์แอดมิน (ไม่พบเอกสาร admins ของ UID '+u.uid+')'};await signOut(auth);render();return}}
+ catch(e){pv={step:'login',err:'เข้าสู่ระบบไม่สำเร็จ: '+(e.code||e.message)};await signOut(auth);render();return}
  render()});
 (async()=>{try{const s=await getDoc(doc(db,'meta','site'));siteOpen=!s.exists()||s.data().open!==false}catch(e){}if(!me)render()})();
 
