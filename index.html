@@ -98,6 +98,14 @@ async function render(){
  }catch(e){$('#app').innerHTML='<div class="err">โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง</div>';return}
  $('#app').innerHTML=adminView();if($('#ce'))fillRw()}
 /* ---------- Player ---------- */
+const SV={asia:'เซิร์ฟเวอร์เอเชีย',naeu:'เซิร์ฟเวอร์อเมริกาเหนือ/ยุโรป'};
+const HOURS='<div class="card"><b>เวลาทำการของแอดมิน (เวลาไทย)</b><p class="mu">ประมาณ 12:10–12:50 น. และตั้งแต่ 20:00 น. เป็นต้นไป ไม่ต้องเช็กบ่อย รอถึงช่วงเวลานี้แล้วค่อยตรวจสอบสถานะ</p></div>';
+const HINT={pending:'รอแอดมินตรวจสอบ',review:'แอดมินกำลังตรวจสอบและดำเนินการส่งรางวัล',sent:'แอดมินส่งรางวัลเรียบร้อยแล้ว',cancelled:'รายการนี้ถูกยกเลิก ติดต่อผู้จัดกิจกรรมหากมีข้อสงสัย'};
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+function expText(t){const e=new Date(ms(t)),a=new Date(),n=Math.round((new Date(e.getFullYear(),e.getMonth(),e.getDate())-new Date(a.getFullYear(),a.getMonth(),a.getDate()))/864e5);return n<=0?'หมดอายุวันนี้ (สิ้นสุด 23:59 น.)':`อีก ${n} วัน (หมดอายุวันที่ ${fd(t)})`}
+const lastClaim=()=>{try{return JSON.parse(localStorage.getItem('idvlast'))||{}}catch(e){return{}}};
+function copyId(t){const bad=()=>toast('คัดลอกไม่ได้ ให้กดค้างที่หมายเลขเพื่อคัดลอก');if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>toast('คัดลอกแล้ว: '+t),bad);else bad()}
+window.copyId=copyId;
 function playerView(){
  if(!siteOpen)return WARN+'<h1>ไม่พบหน้าที่ต้องการ</h1>';
  const s=pv.step;
@@ -106,18 +114,19 @@ function playerView(){
  <div class="err" id="er"></div><button class="full" id="cb" onclick="chk()">ตรวจสอบโค้ด</button>
  <button class="full g" onclick="go('look')">ตรวจสอบรายการของฉัน</button>`;
  if(s==='form'){const c=pv.code;return WARN+`<h1>${esc(c.eventName)}</h1><p>${esc(pv.desc)}</p>
- <div class="card"><div class="kv"><b>รางวัลที่จะได้รับ</b><span>${esc(c.reward)}</span><b>โค้ด</b><span class="code">${esc(c.id)}</span></div></div>
+ <div class="card"><div class="kv"><b>รางวัลที่จะได้รับ</b><span>${esc(c.reward)}</span><b>โค้ด</b><span class="code">${esc(c.id)}</span><b>อายุโค้ด</b><span>${expText(c.exp)}</span></div></div>
+ <label for="sv">เซิร์ฟเวอร์ที่เล่น *</label><select id="sv"><option value="">เลือกเซิร์ฟเวอร์</option><option value="asia">${SV.asia}</option><option value="naeu">${SV.naeu}</option></select>
  <label for="uid">UID ในเกม *</label><input id="uid" inputmode="numeric" maxlength="30">
  <label for="nm">ชื่อในเกม *</label><input id="nm" maxlength="60">
- <label for="jd">วันที่เข้าร่วมกิจกรรม *</label><input id="jd" type="date">
  <div class="err" id="er"></div><button class="full" onclick="review()">ตรวจสอบข้อมูลก่อนส่ง</button>
  <button class="full g" onclick="go('code')">กลับ</button>`}
- if(s==='done')return WARN+'<h1>ส่งข้อมูลสำเร็จ</h1><p class="mu">จดหมายเลขรายการไว้ ใช้ตรวจสอบสถานะภายหลังพร้อม UID ของคุณ ผู้เล่นแก้ไขข้อมูลเองไม่ได้ หากกรอกผิดให้ติดต่อผู้จัดกิจกรรม</p>'+claimCard(pv.claim,false)+'<button class="full" onclick="go(\'code\')">กลับหน้าแรก</button>';
- if(s==='look')return WARN+`<h1>ตรวจสอบรายการ</h1><label for="cn">หมายเลขรายการรับรางวัล</label><input id="cn" class="code" placeholder="CLAIM-XXXXXX"><label for="lu">UID ในเกม</label><input id="lu" inputmode="numeric">
- <div class="err" id="er"></div><button class="full" onclick="lookup()">ตรวจสอบ</button><button class="full g" onclick="go('code')">กลับ</button>`;
- if(s==='found')return WARN+'<h1>รายการของคุณ</h1>'+claimCard(pv.claim,false)+'<button class="full g" onclick="go(\'code\')">กลับหน้าแรก</button>';
+ if(s==='done')return WARN+`<h1>ส่งข้อมูลสำเร็จ</h1>
+ <div class="card"><p class="mu">หมายเลขรายการรับรางวัลของคุณ ต้องใช้หมายเลขนี้คู่กับ UID ในเกม จึงจะตรวจสอบสถานะได้</p><p class="code" style="font-size:26px;font-weight:800;user-select:all">${esc(pv.claim.id)}</p><button class="full" onclick="copyId('${esc(pv.claim.id)}')">คัดลอกหมายเลขรายการ</button><p class="mu">เบราว์เซอร์นี้จะจำหมายเลขไว้ในหน้า "ตรวจสอบรายการของฉัน" แต่ควรคัดลอกหรือจดเก็บไว้ด้วย</p></div>`+claimCard(pv.claim,false)+HOURS+`<p class="mu">ผู้เล่นแก้ไขข้อมูลเองไม่ได้ หากกรอกผิดให้ติดต่อผู้จัดกิจกรรม</p><button class="full" onclick="go('code')">กลับหน้าแรก</button>`;
+ if(s==='look'){const l=lastClaim();return WARN+`<h1>ตรวจสอบรายการ</h1><div class="card"><b>ต้องใช้อะไรตรวจสอบ</b><p class="mu">ต้องใช้ "หมายเลขรายการรับรางวัล" (CLAIM-xxxxxx ที่ได้หลังส่งข้อมูลสำเร็จ) คู่กับ UID ในเกม ใช้แค่โค้ดที่กรอกตรวจสอบไม่ได้</p></div>`+HOURS+`<label for="cn">หมายเลขรายการรับรางวัล</label><input id="cn" class="code" placeholder="CLAIM-XXXXXX" value="${esc(l.id||'')}"><label for="lu">UID ในเกม</label><input id="lu" inputmode="numeric" value="${esc(l.uid||'')}">
+ <div class="err" id="er"></div><button class="full" onclick="lookup()">ตรวจสอบ</button><button class="full g" onclick="go('code')">กลับ</button>`}
+ if(s==='found')return WARN+'<h1>รายการของคุณ</h1>'+claimCard(pv.claim,false)+`<p><b>${HINT[pv.claim.status]||''}</b></p>`+HOURS+'<button class="full g" onclick="go(\'code\')">กลับหน้าแรก</button>';
 }
-function claimCard(c,adm){return `<div class="card"><div class="kv"><b>หมายเลขรายการ</b><span class="code">${esc(c.id||c.claimId)}</span><b>กิจกรรม</b><span>${esc(c.eventName)}</span><b>รางวัล</b><span>${esc(c.reward)}</span><b>โค้ดที่ใช้</b><span class="code">${esc(c.code)}</span><b>UID</b><span>${esc(c.uid)}</span><b>ชื่อในเกม</b><span>${esc(c.name)}</span>${adm?`<b>วันที่เข้าร่วม</b><span>${esc(c.date)}</span>`:''}<b>วันที่ส่งข้อมูล</b><span>${fd(c.created)}</span><b>สถานะ</b><span><span class="tag t-${c.status}">${SL[c.status]}</span></span></div></div>`}
+function claimCard(c,adm){return `<div class="card"><div class="kv"><b>หมายเลขรายการ</b><span class="code">${esc(c.id||c.claimId)}</span><b>กิจกรรม</b><span>${esc(c.eventName)}</span><b>รางวัล</b><span>${esc(c.reward)}</span><b>โค้ดที่ใช้</b><span class="code">${esc(c.code)}</span><b>เซิร์ฟเวอร์</b><span>${esc(SV[c.server]||'-')}</span><b>UID</b><span>${esc(c.uid)}</span><b>ชื่อในเกม</b><span>${esc(c.name)}</span><b>วันที่ส่งข้อมูล</b><span>${fd(c.created)}</span><b>สถานะ</b><span><span class="tag t-${c.status}">${SL[c.status]}</span></span></div></div>`}
 async function chk(){
  const er=$('#er'),L=lk();if(L.until>Date.now()){er.textContent=`ลองผิดหลายครั้งเกินไป กรุณารออีก ${Math.ceil((L.until-Date.now())/60000)} นาที`;return}
  const v=$('#cd').value.trim().toUpperCase().replace(/[^A-Z0-9-]/g,'');
@@ -128,18 +137,19 @@ async function chk(){
  if(!ok){L.n++;if(L.n>=5){sk({n:0,until:Date.now()+15*60000});er.textContent='กรอกผิด 5 ครั้ง ระงับการลอง 15 นาที'}else{sk(L);er.textContent='โค้ดไม่ถูกต้องหรือใช้งานไม่ได้'}$('#cb').disabled=false;return}
  sk({n:0,until:0});pv={step:'form',code:c,desc};render()}
 function review(){
- const uid=$('#uid').value.trim(),nm=$('#nm').value.trim(),jd=$('#jd').value,er=$('#er');
- if(!uid||!nm||!jd){er.textContent='กรุณากรอก UID ชื่อในเกม และวันที่เข้าร่วมให้ครบ';return}
- ask('คุณแน่ใจในข้อมูลแล้วใช่ไหม?',`<div class="kv"><b>UID</b><span>${esc(uid)}</span><b>ชื่อในเกม</b><span>${esc(nm)}</span><b>วันที่เข้าร่วม</b><span>${esc(jd)}</span></div><p class="mu">ส่งแล้วแก้ไขเองไม่ได้ หากผิดต้องติดต่อผู้จัดกิจกรรม</p>`,()=>submit({uid,name:nm,date:jd}),'ใช่ ส่งข้อมูล')}
+ const sv=$('#sv').value,uid=$('#uid').value.trim(),nm=$('#nm').value.trim(),er=$('#er');
+ if(!sv||!uid||!nm){er.textContent='กรุณาเลือกเซิร์ฟเวอร์ และกรอก UID กับชื่อในเกมให้ครบ';return}
+ ask('คุณแน่ใจในข้อมูลแล้วใช่ไหม?',`<div class="kv"><b>เซิร์ฟเวอร์</b><span>${esc(SV[sv])}</span><b>UID</b><span>${esc(uid)}</span><b>ชื่อในเกม</b><span>${esc(nm)}</span></div><p class="mu">ส่งแล้วแก้ไขเองไม่ได้ หากผิดต้องติดต่อผู้จัดกิจกรรม</p>`,()=>submit({server:sv,uid,name:nm,date:today()}),'ใช่ ส่งข้อมูล')}
 async function submit(f){
  const c=pv.code,id='CLAIM-'+rnd(6),rid=id+'_'+await sha(f.uid);
- const base={code:c.id,eventId:c.eventId,eventName:c.eventName,reward:c.reward,uid:f.uid,name:f.name,date:f.date,status:'pending'};
+ const base={code:c.id,eventId:c.eventId,eventName:c.eventName,reward:c.reward,server:f.server,uid:f.uid,name:f.name,date:f.date,status:'pending'};
  try{const b=writeBatch(db);
   b.update(doc(db,'codes',c.id),{status:'used',claimId:id});
   b.set(doc(db,'claims',id),{...base,rid,created:serverTimestamp()});
-  b.set(doc(db,'receipts',rid),{claimId:id,eventName:c.eventName,reward:c.reward,code:c.id,uid:f.uid,name:f.name,created:serverTimestamp(),status:'pending'});
+  b.set(doc(db,'receipts',rid),{claimId:id,eventName:c.eventName,reward:c.reward,code:c.id,server:f.server,uid:f.uid,name:f.name,created:serverTimestamp(),status:'pending'});
   await b.commit()}
  catch(e){toast('ส่งไม่สำเร็จ โค้ดอาจถูกใช้ไปแล้ว หรือกิจกรรมปิดรับ');go('code');return false}
+ try{localStorage.setItem('idvlast',JSON.stringify({id,uid:f.uid}))}catch(e){}
  pv={step:'done',claim:{...base,id,created:Date.now()}};render()}
 async function lookup(){
  const id=$('#cn').value.trim().toUpperCase(),u=$('#lu').value.trim();let r=null;
