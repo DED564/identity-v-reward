@@ -223,7 +223,10 @@ async function addAdm(){const n=$('#tn').value.trim(),e=$('#tu').value.trim(),p=
  render()}
 async function togAdm(id){const a=AD.find(x=>x.id===id);try{await updateDoc(doc(db,'admins',id),{active:!a.active});await log((a.active?'ปิดบัญชี ':'เปิดบัญชี ')+a.name)}catch(e){toast('ทำรายการไม่สำเร็จ')}render()}
 
+ window.APP={db,$,esc,ms,fd,fdt,toast,ask,log,rnd,sha,SV,SL,HOURS,HINT,WARN,expText,claimCard,getMe:()=>me};
 Object.assign(window,{goAdmin,go,setTab,sq,closeD,chk,review,lookup,login,toggleSite,addEv,togEv,editEv,addCode,rndCode,cancelCode,fillRw,setSt,confirmSent,cancelClaim,delClaim,addAdm,togAdm});
 </script>
+ <script type="module" src="raffle.js"></script>
+<script type="module" src="raffle-admin.js"></script>
 </body>
 </html>
