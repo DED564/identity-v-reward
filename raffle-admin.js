@@ -292,7 +292,6 @@ new MutationObserver(()=>{
  })
 }).observe($('#app'),{childList:true});
 
-}
 /* ปุ่มแนบรูปในแท็บผู้รับรางวัล */
 async function addProofBtns(){
  for(const b of document.querySelectorAll('button[onclick^="delClaim("]')){
@@ -309,3 +308,4 @@ async function addProofBtns(){
 }
 let pbT;
 new MutationObserver(()=>{clearTimeout(pbT);pbT=setTimeout(addProofBtns,300)}).observe($('#app'),{childList:true,subtree:true});
+}
