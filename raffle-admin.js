@@ -1,4 +1,4 @@
-import {doc,getDoc,getDocs,setDoc,updateDoc,collection,query,orderBy,limit,where,writeBatch,Timestamp,serverTimestamp,arrayUnion} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {doc,getDoc,getDocs,setDoc,updateDoc,deleteDoc,deleteField,collection,query,orderBy,limit,where,writeBatch,Timestamp,serverTimestamp,arrayUnion} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const A=window.APP;
 if(!A)throw new Error('APP missing');
 const {db,$,esc,ms,fd,fdt,toast,ask,log,rnd,SV,SL}=A;
