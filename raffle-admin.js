@@ -293,3 +293,19 @@ new MutationObserver(()=>{
 }).observe($('#app'),{childList:true});
 
 }
+/* ปุ่มแนบรูปในแท็บผู้รับรางวัล */
+async function addProofBtns(){
+ for(const b of document.querySelectorAll('button[onclick^="delClaim("]')){
+  const row=b.parentElement;
+  if(!row||row.dataset.pbdone)continue;
+  row.dataset.pbdone='1';
+  const m=b.getAttribute('onclick').match(/delClaim\('([^']+)'\)/);
+  if(!m)continue;
+  try{
+   const s=await getDoc(doc(db,'claims',m[1]));
+   if(s.exists())row.insertAdjacentHTML('beforeend',pb({id:s.id,...s.data()},'n'))
+  }catch(e){}
+ }
+}
+let pbT;
+new MutationObserver(()=>{clearTimeout(pbT);pbT=setTimeout(addProofBtns,300)}).observe($('#app'),{childList:true,subtree:true});
