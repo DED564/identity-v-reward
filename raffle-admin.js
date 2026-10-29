@@ -252,9 +252,9 @@ window.proofDel=function(id,rid,k){
  },'ลบ')
 };
 
-/* ---------- ล้างรูปเก่า > 7 วัน ---------- */
+/* ---------- ล้างรูปเก่า > 30 นาที ---------- */
 async function sweep(){
- const cut=Timestamp.fromMillis(Date.now()-7*864e5);
+ const cut=Timestamp.fromMillis(Date.now()-30*60*1000);
  for(const [rc,cc] of [['receipts','claims'],['raffleReceipts','raffleClaims']]){
   const s=await getDocs(query(collection(db,rc),where('proofAt','<',cut),limit(25)));
   for(const d of s.docs){
@@ -286,7 +286,8 @@ new MutationObserver(()=>{
   }
   if(!swept){
    swept=true;
-   setTimeout(()=>sweep().catch(e=>console.warn('sweep',e)),10000)
+      setTimeout(()=>sweep().catch(e=>console.warn('sweep',e)),10000);
+   setInterval(()=>sweep().catch(e=>console.warn('sweep',e)),5*60*1000)
   }
  })
 }).observe($('#app'),{childList:true});
