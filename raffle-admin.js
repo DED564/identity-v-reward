@@ -313,3 +313,103 @@ async function addProofBtns(){
 let pbT;
 const appEl=document.querySelector('#app');
 if(appEl)new MutationObserver(()=>{clearTimeout(pbT);pbT=setTimeout(addProofBtns,300)}).observe(appEl,{childList:true,subtree:true});
+
+/* ---------- ปุ่มลบ: กิจกรรม / โค้ด / สุ่มแจกรางวัล ---------- */
+(function(){
+ const P=window.APP;
+ if(!P)return;
+ const {db,esc,ask,toast,log}=P;
+ const mk=(label,fn,style)=>{
+  const b=document.createElement('button');
+  b.className='d s';
+  b.textContent=label;
+  if(style)b.style.cssText=style;
+  b.onclick=fn;
+  return b
+ };
+ const refresh=k=>{
+  if(k==='raffle'){if(window.RF&&window.RF.back)window.RF.back()}
+  else if(typeof window.setTab==='function')window.setTab(k)
+ };
+
+ function delCode(id){
+  ask('ลบโค้ด',`<p>ลบโค้ด <span class="code">${esc(id)}</span> ?</p><p class="mu">ลบแล้วกู้คืนไม่ได้</p>`,async()=>{
+   const s=await getDoc(doc(db,'codes',id));
+   if(!s.exists()){toast('ไม่พบโค้ดนี้แล้ว');refresh('codes');return}
+   const d=s.data();
+   if(d.status==='used'||d.claimId){toast('โค้ดนี้ถูกใช้แล้ว ลบไม่ได้');return}
+   const b=writeBatch(db);
+   b.delete(doc(db,'codes',id));
+   await b.commit();
+   await log('ลบโค้ด '+id);
+   refresh('codes')
+  },'ลบ')
+ }
+
+ function delEvent(id){
+  ask('ลบกิจกรรม','<p>ลบกิจกรรมนี้?</p><p class="mu">ลบได้เฉพาะกิจกรรมที่ไม่มีโค้ดเหลืออยู่ ลบแล้วกู้คืนไม่ได้</p>',async()=>{
+   const s=await getDocs(query(collection(db,'codes'),where('eventId','==',id),limit(1)));
+   if(!s.empty){toast('ยังมีโค้ดของกิจกรรมนี้อยู่ ลบโค้ดก่อน');return}
+   const b=writeBatch(db);
+   b.delete(doc(db,'events',id));
+   await b.commit();
+   await log('ลบกิจกรรม '+id);
+   refresh('events')
+  },'ลบ')
+ }
+
+ function delRaffle(id){
+  ask('ลบโค้ดสุ่มแจกรางวัล',`<p>ลบ <span class="code">${esc(id)}</span> ?</p><p class="mu">ลบแล้วกู้คืนไม่ได้ ลบได้เฉพาะอันที่ยังไม่มีคนรับ</p>`,async()=>{
+   const r=await getDoc(doc(db,'raffles',id));
+   if(!r.exists()){toast('ไม่พบรายการนี้แล้ว');refresh('raffle');return}
+   if((r.data().taken||0)>0){toast('มีคนรับแล้ว ลบไม่ได้');return}
+   const sl=await getDocs(query(collection(db,'slots'),where('code','==',id)));
+   if(sl.docs.some(x=>x.data().claimId)){toast('มีรางวัลที่ถูกรับแล้ว ลบไม่ได้');return}
+   const refs=sl.docs.map(x=>x.ref);
+   refs.push(r.ref);
+   for(let i=0;i<refs.length;i+=400){
+    const b=writeBatch(db);
+    refs.slice(i,i+400).forEach(x=>b.delete(x));
+    await b.commit()
+   }
+   await log('ลบโค้ดสุ่มแจกรางวัล '+id);
+   refresh('raffle')
+  },'ลบ')
+ }
+
+ function scan(){
+  // โค้ด: ลบได้เฉพาะ ยังไม่ใช้ / หมดอายุ / ยกเลิก
+  document.querySelectorAll('#app .card > .row > span.code').forEach(sp=>{
+   const row=sp.parentElement,card=row.parentElement;
+   if(card.dataset.deldone)return;
+   const tag=row.querySelector('span.tag');
+   if(!tag)return;
+   card.dataset.deldone='1';
+   if(!/\bt-(unused|expired|cancelled)\b/.test(tag.className))return;
+   const id=sp.textContent.trim();
+   card.appendChild(mk('ลบโค้ด',()=>delCode(id),'margin:6px 0 0 6px'))
+  });
+  // กิจกรรม
+  document.querySelectorAll('#app button[onclick^="editEv("]').forEach(b=>{
+   const row=b.parentElement;
+   if(row.dataset.deldone)return;
+   row.dataset.deldone='1';
+   const m=b.getAttribute('onclick').match(/editEv\('([^']+)'\)/);
+   if(m)row.appendChild(mk('ลบ',()=>delEvent(m[1])))
+  });
+  // สุ่มแจกรางวัล: โชว์ปุ่มเฉพาะอันที่รับแล้ว 0 คน
+  document.querySelectorAll('#app button[onclick^="RF.open("]').forEach(b=>{
+   const row=b.parentElement;
+   if(row.dataset.deldone)return;
+   row.dataset.deldone='1';
+   const m=b.getAttribute('onclick').match(/RF\.open\('([^']+)'\)/);
+   if(!m)return;
+   if(!/รับแล้ว\s*0\//.test(row.parentElement.textContent))return;
+   row.appendChild(mk('ลบ',()=>delRaffle(m[1])))
+  })
+ }
+
+ let t;
+ const app=document.querySelector('#app');
+ if(app)new MutationObserver(()=>{clearTimeout(t);t=setTimeout(scan,300)}).observe(app,{childList:true,subtree:true});
+})();
