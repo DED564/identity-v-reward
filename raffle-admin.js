@@ -12,7 +12,7 @@
  addEventListener('error',e=>show('ERR: '+e.message+' @'+(e.filename||'').split('/').pop()+':'+e.lineno));
  addEventListener('unhandledrejection',e=>show('PROMISE: '+(e.reason&&(e.reason.code||e.reason.message)||e.reason)));
 })();
-importt {doc,getDoc,getDocs,setDoc,updateDoc,deleteField,collection,query,orderBy,limit,where,writeBatch,Timestamp,serverTimestamp,arrayUnion} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {doc,getDoc,getDocs,setDoc,updateDoc,deleteField,collection,query,orderBy,limit,where,writeBatch,Timestamp,serverTimestamp,arrayUnion} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const A=window.APP;
 if(!A){console.error('raffle-admin: APP missing');}
