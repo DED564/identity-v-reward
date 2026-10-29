@@ -292,8 +292,12 @@ new MutationObserver(()=>{
  })
 }).observe($('#app'),{childList:true});
 
+}
+
 /* ปุ่มแนบรูปในแท็บผู้รับรางวัล */
 async function addProofBtns(){
+ const P=window.APP;
+ if(!P||!window.pb)return;
  for(const b of document.querySelectorAll('button[onclick^="delClaim("]')){
   const row=b.parentElement;
   if(!row||row.dataset.pbdone)continue;
@@ -301,11 +305,11 @@ async function addProofBtns(){
   const m=b.getAttribute('onclick').match(/delClaim\('([^']+)'\)/);
   if(!m)continue;
   try{
-   const s=await getDoc(doc(db,'claims',m[1]));
-   if(s.exists())row.insertAdjacentHTML('beforeend',pb({id:s.id,...s.data()},'n'))
+   const s=await getDoc(doc(P.db,'claims',m[1]));
+   if(s.exists())row.insertAdjacentHTML('beforeend',window.pb({id:s.id,...s.data()},'n'))
   }catch(e){}
  }
 }
 let pbT;
-new MutationObserver(()=>{clearTimeout(pbT);pbT=setTimeout(addProofBtns,300)}).observe($('#app'),{childList:true,subtree:true});
-}
+const appEl=document.querySelector('#app');
+if(appEl)new MutationObserver(()=>{clearTimeout(pbT);pbT=setTimeout(addProofBtns,300)}).observe(appEl,{childList:true,subtree:true});
