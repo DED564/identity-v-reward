@@ -1,4 +1,18 @@
-import {doc,getDoc,getDocs,setDoc,updateDoc,deleteField,collection,query,orderBy,limit,where,writeBatch,Timestamp,serverTimestamp,arrayUnion} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+(function(){
+ const show=m=>{
+  let b=document.getElementById('dbgbox');
+  if(!b){
+   b=document.createElement('div');
+   b.id='dbgbox';
+   b.style.cssText='position:fixed;left:0;right:0;bottom:0;max-height:40vh;overflow:auto;background:#900;color:#fff;font:12px monospace;padding:8px;z-index:99999;white-space:pre-wrap';
+   document.body.appendChild(b)
+  }
+  b.textContent+=m+'\n'
+ };
+ addEventListener('error',e=>show('ERR: '+e.message+' @'+(e.filename||'').split('/').pop()+':'+e.lineno));
+ addEventListener('unhandledrejection',e=>show('PROMISE: '+(e.reason&&(e.reason.code||e.reason.message)||e.reason)));
+})();
+importt {doc,getDoc,getDocs,setDoc,updateDoc,deleteField,collection,query,orderBy,limit,where,writeBatch,Timestamp,serverTimestamp,arrayUnion} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const A=window.APP;
 if(!A){console.error('raffle-admin: APP missing');}
